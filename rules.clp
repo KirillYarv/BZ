@@ -8,13 +8,13 @@
 
 (deftemplate product
   (slot name)
-  (slot shelf_life)
+  (slot shelf_life (type NUMBER))
   (slot storage_conditions))
 
 (deftemplate request
   (slot id)
   (slot product)
-  (slot quantity)
+  (slot quantity (type NUMBER))
   (slot destination)
   (slot priority))  ;; low, medium, high
 
@@ -41,6 +41,7 @@
   (product (name "товар_А") (shelf_life 2) (storage_conditions "сухое, +5°C"))
   (product (name "товар_B") (shelf_life 10) (storage_conditions "прохладное, +10°C"))
   (product (name "товар_C") (shelf_life 5) (storage_conditions "влажное, +4°C"))
+  (product (name "товар_D") (shelf_life 5) (storage_conditions "влажное, +4°C"))
 
   (request (id R12) (product "товар_А") (quantity 50) (destination "СПб") (priority high))
   (request (id R13) (product "товар_C") (quantity 20) (destination "Самара") (priority medium))

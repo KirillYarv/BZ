@@ -7,10 +7,7 @@ class CLIPSManager:
     def __init__(self, rules_file):
         self.env = clips.Environment()
         self.env.load(rules_file)
-        #self.env.reset()
         self.run()
-        #self.logs = {'alerts': [], 'notices': [], 'infos': []}
-
 
     def run(self):
         self.env.reset()
@@ -69,50 +66,54 @@ class CLIPSManager:
         template = self.env.find_template('request')
         new_fact = template.assert_fact(
             id=clips.Symbol(request_data['id']),
-            product=clips.Symbol(request_data['product']),
+            product=request_data['product'],
             quantity=request_data['quantity'],
             destination=clips.Symbol(request_data['destination']),
             priority=clips.Symbol(request_data['priority'])
         )
+        self.env._agenda.run()
         self.categorize_logs()
         return new_fact
 
     def remove_request(self, request_id):
         for fact in self.env.facts():
-            if fact.template.name == 'request' and fact['id'] == request_id:
+            if fact.template.name == 'request' and str(fact['id']) == str(request_id):
                 fact.retract()
+                self.env._agenda.run()
                 self.categorize_logs()
                 return True
         return False
 
-    def add_product_to_warehouse(self, warehouse_id, product_name, shelf_life, storage_conditions):
+    def add_product_to_warehouse(self, result_data):
         for fact in self.env.facts():
-            if fact.template.name == 'warehouse' and fact['id'] == warehouse_id:
+            if fact.template.name == 'warehouse' and fact['id'] == result_data['warehouse_id']:
                 # Create new product list
                 new_products = list(fact['products'])
-                if product_name not in new_products:
-                    new_products.append(clips.Symbol(product_name))
+                if result_data['product'] not in new_products:
+                    new_products.append(result_data['product'])
                     location = fact['location']
                     # Retract old fact
                     fact.retract()
 
                     # Create new fact with updated products
                     template = self.env.find_template('warehouse')
-                    # print(fact)
                     template.assert_fact(
-                        id=clips.Symbol(warehouse_id),
+                        id=clips.Symbol(result_data['warehouse_id']),
                         location=clips.Symbol(location),
                         products=new_products
                     )
 
                     # Create new fact with updated products
                     template = self.env.find_template('product')
-                    # print(fact)
                     template.assert_fact(
-                        name=clips.Symbol(product_name),
-                        shelf_life=clips.Symbol(shelf_life),
-                        storage_conditions=storage_conditions
+                        name=result_data['product'],
+                        shelf_life=int(result_data['shelf_life']),
+                        storage_conditions=clips.Symbol(result_data['storage_conditions'])
                     )
+
+                    for item in self.env._agenda.rules():
+                        print(item)
+                    self.env._agenda.run()
                     self.categorize_logs()
                     return True
         return False
@@ -377,7 +378,6 @@ class LogisticsApp(tk.Tk):
         if not selected:
             messagebox.showwarning("Предупреждение", "Выберите заказ для удаления")
             return
-
         request_id = self.orders_tree.item(selected[0])['values'][0]
         if self.clips.remove_request(request_id):
             self.update_all_tabs()
@@ -385,12 +385,7 @@ class LogisticsApp(tk.Tk):
     def add_product_to_warehouse(self):
         dialog = AddProductDialog(self, "Добавить товар на склад")
         if dialog.result_data:
-            warehouse_id = dialog.result_data['warehouse_id']
-            product_name = dialog.result_data['product']
-            shelf_life = dialog.result_data['shelf_life']
-            storage_conditions = dialog.result_data['storage_conditions']
-
-            if self.clips.add_product_to_warehouse(warehouse_id, product_name, shelf_life, storage_conditions):
+            if self.clips.add_product_to_warehouse(dialog.result_data):
                 self.update_all_tabs()
             else:
                 messagebox.showerror("Ошибка",
